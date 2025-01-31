@@ -17,7 +17,7 @@ public class Code extends JFrame implements GLEventListener
 
 	public Code()
 	{	setTitle("Chapter 2 - program 6");
-		setSize(1000, 200);
+		setSize(400, 200);
 		myCanvas = new GLCanvas();
 		myCanvas.addGLEventListener(this);
 		this.add(myCanvas);
