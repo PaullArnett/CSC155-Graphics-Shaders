@@ -1,6 +1,6 @@
 {
     "java.project.sourcePaths": [
-        "CSC155-Graphics-Shaders\\Assignment_1"
+        "CSC155-Graphics-Shaders"
     ],
     "java.project.referencedLibraries": [
         "c:\\javagaming\\jogl\\jogamp-fat.jar"
