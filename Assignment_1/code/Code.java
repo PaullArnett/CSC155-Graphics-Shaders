@@ -1,3 +1,9 @@
+//for elapsed time see code in chpt 4
+//for moving in circle - send uniforms to shader (x,y)
+//for color changing, use uniform variable as well
+//For color gradient, each vertex is a solid color that becomes gradient in the middle
+//use out vec4 vertexColor and in vec4 vertexColor
+
 package code;
 
 import javax.swing.*;
