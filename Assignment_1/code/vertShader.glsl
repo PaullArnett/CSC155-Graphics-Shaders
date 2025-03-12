@@ -5,6 +5,10 @@ uniform vec4 colors[3];
 
 out vec4 fragColor;
 
+//x and y are offsets
+//z is the scaler
+//w determines orienation
+
 void main(void)
 {
     if (offset.w == 0){
@@ -40,6 +44,7 @@ void main(void)
           gl_Position = vec4( -0.1*offset.z + offset.x, 0.0*offset.z + offset.y, 0.0, 1.0);
     }
 
+    //passes colors to fragShader
     if (gl_VertexID == 0)
       fragColor = colors[0];
     else if (gl_VertexID == 1)
