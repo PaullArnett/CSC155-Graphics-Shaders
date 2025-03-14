@@ -1,4 +1,4 @@
-package code;
+package a2;
 
 import java.io.*;
 import java.nio.*;
