@@ -11,7 +11,10 @@ import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GLContext;
 import org.joml.*;
 
-public class Code extends JFrame implements GLEventListener
+import java.awt.event.KeyListener;
+import java.awt.event.KeyEvent;
+
+public class Code extends JFrame implements GLEventListener, KeyListener
 {	private GLCanvas myCanvas;
 	private int renderingProgram1, renderingProgram2;
 	private int vao[] = new int[1];
@@ -25,8 +28,22 @@ public class Code extends JFrame implements GLEventListener
 	// location of torus, pyramid, light, and camera
 	private Vector3f torusLoc = new Vector3f(1.6f, 0.0f, -0.3f);
 	private Vector3f pyrLoc = new Vector3f(-1.0f, 0.1f, 0.3f);
-	private Vector3f cameraLoc = new Vector3f(0.0f, 0.2f, 6.0f);
 	private Vector3f lightLoc = new Vector3f(-3.8f, 2.2f, 1.1f);
+
+	//camera stuff
+	private float cameraX, cameraY, cameraZ;
+	private Vector3f cameraFront = new Vector3f(0.0f, 0.0f, -1.0f); // Initial direction
+	private Vector3f cameraUp = new Vector3f(0.0f, 1.0f, 0.0f);     // Fixed up vector
+	private Vector3f cameraRight = new Vector3f();   
+	private float yaw = -90.0f;   
+	private float pitch = -15.0f; 
+	private float rotationSpeed = 3.0f; 
+	private float cameraSpeed = 0.3f;
+
+	//booleans
+	private boolean showAxes = true;
+	private boolean lightEnabled = true;
+	private boolean lightMove = false;
 	
 	// white light properties
 	private float[] globalAmbient = new float[] { 0.7f, 0.7f, 0.7f, 1.0f };
@@ -76,13 +93,14 @@ public class Code extends JFrame implements GLEventListener
 
 	// models + textures
 	private ImportedModel campfireModel;
-	private int    numCampfireVertices, campfireTexture;
-	private Vector3f campfireLoc = new Vector3f(0,0,0);
+	private int numCampfireVertices, campfireTexture, campfireVAO;
+	private int[] campfireVBO;
+	private Vector3f campfireLoc = new Vector3f(-2f,0,2f);
 
 	private ImportedModel pandaModel;
 	private int    numPandaVertices, pandaTexture, pandaVAO;
 	private int[]  pandaVBO;
-	private Vector3f pandaLoc = new Vector3f(.5f,0,-.5f);
+	private Vector3f pandaLoc = new Vector3f(-.5f,0,.5f);
 
 	private ImportedModel flyModel;
 	private int    numFlyVertices, flyTexture, flyVAO;
@@ -92,6 +110,7 @@ public class Code extends JFrame implements GLEventListener
 	private int floorVAO;
 	private int[] floorVBO;
 	private int floorTexture;
+	private Vector3f floorLoc = new Vector3f(0,0,0);
 
 	private int skyboxVAO;
 	private int[] skyboxVBO;
@@ -102,6 +121,7 @@ public class Code extends JFrame implements GLEventListener
 		setSize(800, 800);
 		myCanvas = new GLCanvas();
 		myCanvas.addGLEventListener(this);
+		myCanvas.addKeyListener(this);
 		this.add(myCanvas);
 		this.setVisible(true);
 		Animator animator = new Animator(myCanvas);
@@ -114,10 +134,14 @@ public class Code extends JFrame implements GLEventListener
 		gl.glClear(GL_COLOR_BUFFER_BIT);
 		gl.glClear(GL_DEPTH_BUFFER_BIT);
 		
-		currentLightPos.set(lightLoc);
+        // Update view matrix based on camera position and direction
+        vMat.identity();
+        vMat.lookAt(
+            new Vector3f(cameraX, cameraY, cameraZ),     
+            new Vector3f(cameraX, cameraY, cameraZ).add(cameraFront),cameraUp);
 		
 		lightVmat.identity().setLookAt(currentLightPos, origin, up);	// vector from light to origin
-		lightPmat.identity().setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
+		lightPmat.identity().setPerspective((float) Math.toRadians(90.0f), aspect, 0.1f, 100.0f);
 
 		gl.glBindFramebuffer(GL_FRAMEBUFFER, shadowBuffer[0]);
 		gl.glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, shadowTex[0], 0);
@@ -144,13 +168,11 @@ public class Code extends JFrame implements GLEventListener
 	{	GL4 gl = (GL4) GLContext.getCurrentGL();
 	
 		gl.glUseProgram(renderingProgram1);
-
-		// draw the torus
 		
-		// draw the panda instead of the torus
+		// draw the panda 
 		mMat.identity();
 		mMat.translate(pandaLoc.x(), pandaLoc.y(), pandaLoc.z());
-		mMat.rotateY((float)Math.toRadians(90.0f));
+		mMat.rotateY((float)Math.toRadians(135.0f));
 
 		shadowMVP1.identity();
 		shadowMVP1.mul(lightPmat).mul(lightVmat).mul(mMat);
@@ -176,12 +198,13 @@ public class Code extends JFrame implements GLEventListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, numPandaVertices);
 		gl.glBindVertexArray(0);
 
-		// draw the pyramid
+		// draw the campfire
 		
 		mMat.identity();
-		mMat.translate(pyrLoc.x(), pyrLoc.y(), pyrLoc.z());
-		mMat.rotateX((float)Math.toRadians(30.0f));
-		mMat.rotateY((float)Math.toRadians(40.0f));
+		mMat.translate(campfireLoc.x(), campfireLoc.y(), campfireLoc.z());
+		mMat.scale(0.1f, 0.1f, 0.1f);
+		//mMat.rotateX((float)Math.toRadians(30.0f));
+		//mMat.rotateY((float)Math.toRadians(40.0f));
 
 		shadowMVP1.identity();
 		shadowMVP1.mul(lightPmat);
@@ -190,16 +213,56 @@ public class Code extends JFrame implements GLEventListener
 
 		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP1.get(vals));
 		
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+
+		gl.glBindVertexArray(campfireVAO);
+		// positions → attrib 0
+		gl.glBindBuffer(GL_ARRAY_BUFFER, campfireVBO[0]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
+		// normals → attrib 1
+		gl.glBindBuffer(GL_ARRAY_BUFFER, campfireVBO[2]);
+		gl.glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
 
 		gl.glEnable(GL_CULL_FACE);
 		gl.glFrontFace(GL_CCW);
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDepthFunc(GL_LEQUAL);
 	
-		gl.glDrawArrays(GL_TRIANGLES, 0, numPyramidVertices);
+		gl.glDrawArrays(GL_TRIANGLES, 0, numCampfireVertices);
+
+		// ------ draw the floor -------
+		
+		mMat.identity();
+		mMat.translate(floorLoc.x(), floorLoc.y(), floorLoc.z());
+		mMat.scale(10f, 10f, 10f);
+		//mMat.rotateX((float)Math.toRadians(30.0f));
+		//mMat.rotateY((float)Math.toRadians(40.0f));
+
+		shadowMVP1.identity();
+		shadowMVP1.mul(lightPmat);
+		shadowMVP1.mul(lightVmat);
+		shadowMVP1.mul(mMat);
+
+		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP1.get(vals));
+		
+
+		gl.glBindVertexArray(floorVAO);
+		// positions → attrib 0
+		gl.glBindBuffer(GL_ARRAY_BUFFER, floorVBO[0]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		// normals → attrib 1
+		gl.glBindBuffer(GL_ARRAY_BUFFER, floorVBO[2]);
+		gl.glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glDepthFunc(GL_LEQUAL);
+	
+		gl.glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	public void passTwo()
@@ -230,14 +293,14 @@ public class Code extends JFrame implements GLEventListener
 		thisSpe = BmatSpe;
 		thisShi = BmatShi;
 		
-		vMat.identity().setTranslation(-cameraLoc.x(), -cameraLoc.y(), -cameraLoc.z());
-		currentLightPos.set(lightLoc);
+		//vMat.identity().setTranslation(-cameraX, -cameraY, -cameraZ);
+		currentLightPos.set(campfireLoc.x, campfireLoc.y + 3f,campfireLoc.z);
 		installLights(renderingProgram2);
 
 		mMat.identity();
 	    mMat.translate(pandaLoc.x(), pandaLoc.y(), pandaLoc.z());
-		mMat.rotateY((float)Math.toRadians(25.0f));
-		mMat.rotateY((float)Math.toRadians(90.0f));
+		//mMat.rotateY((float)Math.toRadians(25.0f));
+		mMat.rotateY((float)Math.toRadians(135.0f));
 		
 		mMat.invert(invTrMat);
 		invTrMat.transpose(invTrMat);
@@ -284,8 +347,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, numPandaVertices);
 		gl.glBindVertexArray(0);
 
-		// draw the pyramid
-		gl.glUniform1i(uTexLoc, 0);    
+		// draw the campfire  
 		
 		thisAmb = GmatAmb; // the pyramid is gold
 		thisDif = GmatDif;
@@ -293,11 +355,12 @@ public class Code extends JFrame implements GLEventListener
 		thisShi = GmatShi;
 		
 		mMat.identity();
-		mMat.translate(pyrLoc.x(), pyrLoc.y(), pyrLoc.z());
-		mMat.rotateX((float)Math.toRadians(30.0f));
-		mMat.rotateY((float)Math.toRadians(40.0f));
+		mMat.translate(campfireLoc.x(), campfireLoc.y(), campfireLoc.z());
+		mMat.scale(0.1f, 0.1f, 0.1f);
+		//mMat.rotateX((float)Math.toRadians(30.0f));
+		//mMat.rotateY((float)Math.toRadians(40.0f));
 		
-		currentLightPos.set(lightLoc);
+		currentLightPos.set(campfireLoc.x, campfireLoc.y + 3f,campfireLoc.z);
 		installLights(renderingProgram2);
 
 		shadowMVP2.identity();
@@ -315,20 +378,89 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
 		
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
+		gl.glBindVertexArray(campfireVAO);
+	    // positions
+	    gl.glBindBuffer(GL_ARRAY_BUFFER, campfireVBO[0]);
+	    gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+	    gl.glEnableVertexAttribArray(0);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+	    // normals
+		gl.glBindBuffer(GL_ARRAY_BUFFER, campfireVBO[2]);
 		gl.glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
 
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
-		gl.glEnable(GL_DEPTH_TEST);
-		gl.glDepthFunc(GL_LEQUAL);
+		// text coords
+		gl.glBindBuffer(GL_ARRAY_BUFFER, campfireVBO[1]);
+		gl.glVertexAttribPointer(2, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(2);
 
-		gl.glDrawArrays(GL_TRIANGLES, 0, numPyramidVertices);
+		// bind the panda texture
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, campfireTexture);
+		texLoc = gl.glGetUniformLocation(renderingProgram2, "textureMap");
+		gl.glUniform1i(texLoc, 0);
+		 
+		gl.glDisable(GL_CULL_FACE);
+		gl.glDrawArrays(GL_TRIANGLES, 0, numCampfireVertices);
+		gl.glBindVertexArray(0);
+		gl.glEnable(GL_CULL_FACE);
+
+		// --------- draw the Floor ---------  
+		
+		thisAmb = GmatAmb; //  is gold
+		thisDif = GmatDif;
+		thisSpe = GmatSpe;
+		thisShi = GmatShi;
+		
+		mMat.identity();
+		mMat.translate(floorLoc.x(), floorLoc.y(), floorLoc.z());
+		mMat.scale(10f, 10f, 10f);
+		//mMat.rotateX((float)Math.toRadians(30.0f));
+		//mMat.rotateY((float)Math.toRadians(40.0f));
+		
+		currentLightPos.set(campfireLoc.x, campfireLoc.y + 3f,campfireLoc.z);
+		installLights(renderingProgram2);
+
+		shadowMVP2.identity();
+		shadowMVP2.mul(b);
+		shadowMVP2.mul(lightPmat);
+		shadowMVP2.mul(lightVmat);
+		shadowMVP2.mul(mMat);
+		
+		mMat.invert(invTrMat);
+		invTrMat.transpose(invTrMat);
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
+		
+		gl.glBindVertexArray(floorVAO);
+	    // positions
+	    gl.glBindBuffer(GL_ARRAY_BUFFER, floorVBO[0]);
+	    gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+	    gl.glEnableVertexAttribArray(0);
+
+	    // normals
+		gl.glBindBuffer(GL_ARRAY_BUFFER, floorVBO[2]);
+		gl.glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+
+		// text coords
+		gl.glBindBuffer(GL_ARRAY_BUFFER, floorVBO[1]);
+		gl.glVertexAttribPointer(2, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(2);
+
+		// bind the texture
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, floorTexture);
+		texLoc = gl.glGetUniformLocation(renderingProgram2, "textureMap");
+		gl.glUniform1i(texLoc, 0);
+		 
+
+		gl.glDrawArrays(GL_TRIANGLES, 0, 6);
+		gl.glBindVertexArray(0);
 	}
 
 	public void init(GLAutoDrawable drawable)
@@ -351,21 +483,20 @@ public class Code extends JFrame implements GLEventListener
 		floorTexture   = Utils.loadTexture("ground.jpg");
 		skyboxTexture  = Utils.loadTexture("Night Sky.png");
 
-		gl.glBindTexture(GL_TEXTURE_2D, floorTexture);
-		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
 		pMat.identity().setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
 
 		setupVertices();
 		//setupSkyboxVertices();
-		//setupCampfireVertices();       
+		setupCampfireVertices();       
 		setupPandaVertices();
 		//setupFlyVertices();
-		//setupFloorVertices();
+		setupFloorVertices();
 
 		setupShadowBuffers();
+
+		cameraX = 0.0f; cameraY = 3.0f; cameraZ = 8.0f;
+		updateCameraVectors();
 				
 		b.set(
 			0.5f, 0.0f, 0.0f, 0.0f,
@@ -393,6 +524,10 @@ public class Code extends JFrame implements GLEventListener
 		// may reduce shadow border artifacts
 		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		gl.glBindTexture(GL_TEXTURE_2D, floorTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	}
 
 	private void setupVertices()
@@ -527,22 +662,26 @@ public class Code extends JFrame implements GLEventListener
 			nvalues[i * 3 + 2] = normals[i].z();
 		}
 	
-		gl.glGenVertexArrays(vao.length, vao, 0);
-		gl.glBindVertexArray(vao[0]);
-		gl.glGenBuffers(vbo.length, vbo, 0);
+		int[] fireVAO = new int[1];
+		gl.glGenVertexArrays(1, fireVAO, 0);
+		campfireVAO = fireVAO[0];
+		gl.glBindVertexArray(campfireVAO);
+	
+		campfireVBO = new int[3];
+		gl.glGenBuffers(3, campfireVBO, 0);
 	
 		// Positions buffer
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, campfireVBO[0]);
 		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(pvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit()*4, vertBuf, GL_STATIC_DRAW);
 	
 		// Texture coordinates buffer
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, campfireVBO[1]);
 		FloatBuffer texBuf = Buffers.newDirectFloatBuffer(tvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, texBuf.limit()*4, texBuf, GL_STATIC_DRAW);
 	
 		// Normals buffer
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, campfireVBO[2]);
 		FloatBuffer norBuf = Buffers.newDirectFloatBuffer(nvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, norBuf.limit()*4, norBuf, GL_STATIC_DRAW);
 	}
@@ -757,6 +896,111 @@ public class Code extends JFrame implements GLEventListener
 	
 		gl.glBindVertexArray(0);
 	}
+
+	@Override
+	public void keyPressed(KeyEvent e) {
+		updateCameraVectors(); 
+
+		switch (e.getKeyCode()) {
+			// Move forward/backward
+			case KeyEvent.VK_W:
+			if(lightMove){
+				campfireLoc.z -= cameraSpeed;
+			}
+			else{
+				cameraX += cameraFront.x * cameraSpeed;
+				cameraY += cameraFront.y * cameraSpeed;
+				cameraZ += cameraFront.z * cameraSpeed;
+			}
+				break;
+			case KeyEvent.VK_S:
+			if(lightMove){
+				campfireLoc.z += cameraSpeed;
+			}
+			else{
+				cameraX -= cameraFront.x * cameraSpeed;
+				cameraY -= cameraFront.y * cameraSpeed;
+				cameraZ -= cameraFront.z * cameraSpeed;
+			}
+				break;
+			// Move left/right 
+			case KeyEvent.VK_A:
+			if(lightMove){
+				campfireLoc.x -= cameraSpeed;
+			}
+			else{
+				cameraX -= cameraRight.x * cameraSpeed;
+				cameraY -= cameraRight.y * cameraSpeed;
+				cameraZ -= cameraRight.z * cameraSpeed;
+			}
+				break;
+			case KeyEvent.VK_D:
+			if(lightMove){
+				campfireLoc.x += cameraSpeed;
+			}
+			else{
+				cameraX += cameraRight.x * cameraSpeed;
+				cameraY += cameraRight.y * cameraSpeed;
+				cameraZ += cameraRight.z * cameraSpeed;
+			}
+				break;
+			// Move up/down
+			case KeyEvent.VK_Q:
+				cameraY += cameraSpeed;
+				break;
+			case KeyEvent.VK_E:
+				cameraY -= cameraSpeed;
+				break;
+			// Rotate camera
+			case KeyEvent.VK_LEFT:
+				yaw -= rotationSpeed;
+				break;
+			case KeyEvent.VK_RIGHT:
+				yaw += rotationSpeed;
+				break;
+			case KeyEvent.VK_UP:
+				pitch += rotationSpeed;
+				break;
+			case KeyEvent.VK_DOWN:
+				pitch -= rotationSpeed;
+				break;
+			//turn on off the axis lines
+			case KeyEvent.VK_L:
+				showAxes = !showAxes; 
+				break;
+			//turn on light moving mode
+			case KeyEvent.VK_SPACE:
+				lightMove = !lightMove;
+				break; 
+			case KeyEvent.VK_1:
+				lightEnabled = !lightEnabled;
+				break;
+		}
+		// Limit pitch and cameraY to prevent flipping and going under floor
+		pitch = Math.max(-89.0f, Math.min(89.0f, pitch));
+		cameraY = Math.max(.25f, cameraY);
+
+		updateCameraVectors();
+		myCanvas.display();
+	}
+
+	private void updateCameraVectors() {
+		// Calculate the new front vector
+		float yawRad = (float) Math.toRadians(yaw);
+		float pitchRad = (float) Math.toRadians(pitch);
+
+		cameraFront.x = (float) (Math.cos(yawRad) * Math.cos(pitchRad));
+		cameraFront.y = (float) Math.sin(pitchRad);
+		cameraFront.z = (float) (Math.sin(yawRad) * Math.cos(pitchRad));
+
+		cameraFront.normalize();  
+		cameraRight.set(cameraFront).cross(cameraUp).normalize();
+	}
+
+	@Override
+	public void keyReleased(KeyEvent e) {}
+	@Override
+	public void keyTyped(KeyEvent e) {}
 
 
 	public static void main(String[] args) { new Code(); }

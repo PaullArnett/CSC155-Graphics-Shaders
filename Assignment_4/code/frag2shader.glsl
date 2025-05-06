@@ -27,13 +27,13 @@ uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
 uniform mat4 shadowMVP;
 
-layout (binding=0) uniform sampler2DShadow shadowTex;
+layout (binding=1) uniform sampler2DShadow shadowTex;
 uniform sampler2D textureMap;
 
 void main(void)
 {	vec3 L = normalize(varyingLightDir);
 	vec3 N = normalize(varyingNormal);
-	vec3 V = normalize(-v_matrix[3].xyz - varyingVertPos);
+	vec3 V = normalize(-v_matrix[3].xyz * mat3(v_matrix) - varyingVertPos);
 	vec3 H = normalize(varyingHalfVec);
 	
 	float notInShadow = textureProj(shadowTex, shadow_coord);
