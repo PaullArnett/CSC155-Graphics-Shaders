@@ -7,6 +7,7 @@ in vec2 texCoord;
 out vec4 fragColor;
 
 uniform bool u_texture; 
+uniform vec4 u_color;
  
 struct PositionalLight
 {	vec4 ambient, diffuse, specular;
@@ -48,6 +49,10 @@ void main(void)
 	if (u_texture)
 	{
 		fragColor = texture(textureMap, texCoord);
+	}
+	else
+	{
+		fragColor = u_color;
 	}
 
 	if (notInShadow == 1.0)

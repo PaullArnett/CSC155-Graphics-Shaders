@@ -100,7 +100,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	private ImportedModel pandaModel;
 	private int    numPandaVertices, pandaTexture, pandaVAO;
 	private int[]  pandaVBO;
-	private Vector3f pandaLoc = new Vector3f(-.5f,0,.5f);
+	private Vector3f pandaLoc = new Vector3f(0f,0f,0f);
 
 	private ImportedModel flyModel;
 	private int    numFlyVertices, flyTexture, flyVAO;
@@ -110,11 +110,14 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	private int floorVAO;
 	private int[] floorVBO;
 	private int floorTexture;
-	private Vector3f floorLoc = new Vector3f(0,0,0);
+	private Vector3f floorLoc = new Vector3f(0,-.05f,0);
 
 	private int skyboxVAO;
 	private int[] skyboxVBO;
 	private int skyboxTexture;
+
+	private int axisVAO;
+    private int axisVBO;
 	
 	public Code()
 	{	setTitle("Chapter8 - program 1");
@@ -461,6 +464,40 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 
 		gl.glDrawArrays(GL_TRIANGLES, 0, 6);
 		gl.glBindVertexArray(0);
+
+		// ----------Axis Lines--------------
+		if(showAxes) {
+			// 1. reset model matrix to identity so axes sit at world origin
+			mMat.identity();
+			gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+			gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+			gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+			
+			// 2. tell the shader dont sample textures, use u_color instead
+			uTexLoc = gl.glGetUniformLocation(renderingProgram2, "u_texture");
+			gl.glUniform1i(uTexLoc, 0);
+			int colorLoc = gl.glGetUniformLocation(renderingProgram2, "u_color");
+			
+			Matrix4f axisMat = new Matrix4f().identity();
+			axisMat.scale(5f);
+			gl.glUniformMatrix4fv(mLoc, 1, false, axisMat.get(vals));
+
+			// 4. bind your axis VAO and draw 3 lines (6 verts)
+			gl.glBindVertexArray(axisVAO);
+			// X-axis in Red
+			gl.glUniform4f(colorLoc, 1.0f, 0.0f, 0.0f, 1.0f);
+			gl.glDrawArrays(GL_LINES, 0, 2);
+			// Y-axis in Green
+			gl.glUniform4f(colorLoc, 0.0f, 1.0f, 0.0f, 1.0f);
+			gl.glDrawArrays(GL_LINES, 2, 2);
+			// Z-axis in Blue
+			gl.glUniform4f(colorLoc, 0.0f, 0.0f, 1.0f, 1.0f);
+			gl.glDrawArrays(GL_LINES, 4, 2);
+			gl.glBindVertexArray(0);
+			
+			// 5. turn texturing back on for subsequent draws
+			gl.glUniform1i(uTexLoc, 1);
+		}
 	}
 
 	public void init(GLAutoDrawable drawable)
@@ -492,6 +529,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		setupPandaVertices();
 		//setupFlyVertices();
 		setupFloorVertices();
+		setupAxisLines();
 
 		setupShadowBuffers();
 
@@ -895,6 +933,33 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glBufferData(GL_ARRAY_BUFFER, normBuffer.limit() * 4, normBuffer, GL_STATIC_DRAW);
 	
 		gl.glBindVertexArray(0);
+	}
+
+	private void setupAxisLines() {
+        GL4 gl = (GL4) GLContext.getCurrentGL();
+
+        float[] axisVertices = {
+             0.0f, 0.0f, 0.0f,   1.0f, 0.0f, 0.0f, // X-axis
+             0.0f, 0.0f, 0.0f,   0.0f, 1.0f, 0.0f, // Y-axis
+             0.0f, 0.0f, 0.0f,   0.0f, 0.0f, 1.0f  // Z-axis
+        };
+
+        int[] temp = new int[1];
+        gl.glGenVertexArrays(1, temp, 0);
+        axisVAO = temp[0];
+        gl.glBindVertexArray(axisVAO);
+
+        int[] buffers = new int[1];
+        gl.glGenBuffers(1, buffers, 0);
+        axisVBO = buffers[0];
+        gl.glBindBuffer(GL_ARRAY_BUFFER, axisVBO);
+        FloatBuffer axisBuf = Buffers.newDirectFloatBuffer(axisVertices);
+        gl.glBufferData(GL_ARRAY_BUFFER, axisBuf.limit() * 4, axisBuf, GL_STATIC_DRAW);
+
+        gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * 4, 0);
+        gl.glEnableVertexAttribArray(0);
+
+        gl.glBindVertexArray(0);
 	}
 
 	@Override
