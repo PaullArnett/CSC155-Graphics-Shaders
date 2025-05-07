@@ -44,6 +44,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	private boolean showAxes = true;
 	private boolean lightEnabled = true;
 	private boolean lightMove = false;
+	private boolean fog = true;
 	
 	// white light properties
 	private float[] globalAmbient = new float[] { 0.7f, 0.7f, 0.7f, 1.0f };
@@ -124,6 +125,9 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	private double prevTime;
 	private double elapsedTime;
 	private long lastTime = System.currentTimeMillis();
+
+	//transparency
+	private int alphaLoc, flipLoc;
 	
 	public Code()
 	{	setTitle("Chapter8 - program 1");
@@ -315,7 +319,17 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 
 		// after glUseProgram(renderingProgram2):
 		int shadowLoc = gl.glGetUniformLocation(renderingProgram2, "shadowTex");
+		int uFog = gl.glGetUniformLocation(renderingProgram2, "u_fog");
+		alphaLoc = gl.glGetUniformLocation(renderingProgram2, "alpha");
+		flipLoc = gl.glGetUniformLocation(renderingProgram2, "flipNormal");
 		gl.glUniform1i(shadowLoc, 1);
+
+		//fog on or off
+
+		if(fog){gl.glUniform1i(uFog, 1);}
+		else{gl.glUniform1i(uFog, 0);}
+
+
 		// bind the shadow map into unit 1:
 		gl.glActiveTexture(GL_TEXTURE1);
 		gl.glBindTexture(GL_TEXTURE_2D, shadowTex[0]);
@@ -358,6 +372,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
+		gl.glProgramUniform1f(renderingProgram2, alphaLoc, 1.0f);
+		gl.glProgramUniform1f(renderingProgram2, flipLoc, 1.0f);
 
 
 		int uTexLoc = gl.glGetUniformLocation(renderingProgram2, "u_texture");
@@ -419,6 +435,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
+		gl.glProgramUniform1f(renderingProgram2, alphaLoc, 1.0f);
+		gl.glProgramUniform1f(renderingProgram2, flipLoc, 1.0f);
 		
 		gl.glBindVertexArray(campfireVAO);
 	    // positions
@@ -441,11 +459,28 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glBindTexture(GL_TEXTURE_2D, campfireTexture);
 		texLoc = gl.glGetUniformLocation(renderingProgram2, "textureMap");
 		gl.glUniform1i(texLoc, 0);
-		 
-		gl.glDisable(GL_CULL_FACE);
-		gl.glDrawArrays(GL_TRIANGLES, 0, numCampfireVertices);
-		gl.glBindVertexArray(0);
+
+		 //transparncy section
+		gl.glEnable(GL_BLEND);
+		gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		gl.glBlendEquation(GL_FUNC_ADD);
+
 		gl.glEnable(GL_CULL_FACE);
+		
+		gl.glCullFace(GL_FRONT);
+		gl.glProgramUniform1f(renderingProgram2, alphaLoc, 0.6f);
+		gl.glProgramUniform1f(renderingProgram2, flipLoc, -1.0f);
+		gl.glDrawArrays(GL_TRIANGLES, 0, numCampfireVertices);
+		
+		gl.glCullFace(GL_BACK);
+		gl.glProgramUniform1f(renderingProgram2, alphaLoc, 0.6f);
+		gl.glProgramUniform1f(renderingProgram2, flipLoc, 1.0f);
+		gl.glDrawArrays(GL_TRIANGLES, 0, numCampfireVertices);
+
+		gl.glDisable(GL_BLEND);
+
+		gl.glBindVertexArray(0);
+
 
 		//----------Draw the Fly--------------
 
@@ -490,6 +525,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
+		gl.glProgramUniform1f(renderingProgram2, alphaLoc, 1.0f);
+		gl.glProgramUniform1f(renderingProgram2, flipLoc, 1.0f);
 		
 		gl.glBindVertexArray(flyVAO);
 	    // positions
@@ -548,6 +585,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
+		gl.glProgramUniform1f(renderingProgram2, alphaLoc, 1.0f);
+		gl.glProgramUniform1f(renderingProgram2, flipLoc, 1.0f);
 		
 		gl.glBindVertexArray(floorVAO);
 	    // positions
@@ -606,6 +645,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
+		gl.glProgramUniform1f(renderingProgram2, alphaLoc, 1.0f);
+		gl.glProgramUniform1f(renderingProgram2, flipLoc, 1.0f);
 		
 		gl.glBindVertexArray(skyboxVAO);
 	    // positions
@@ -636,6 +677,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 			gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
 			gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 			gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+			gl.glProgramUniform1f(renderingProgram2, alphaLoc, 1.0f);
+			gl.glProgramUniform1f(renderingProgram2, flipLoc, 1.0f);
 			
 			// 2. tell the shader dont sample textures, use u_color instead
 			uTexLoc = gl.glGetUniformLocation(renderingProgram2, "u_texture");
@@ -667,7 +710,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	public void init(GLAutoDrawable drawable)
 	{	GL4 gl = (GL4) GLContext.getCurrentGL();
 		renderingProgram1 = Utils.createShaderProgram("code/vert1shader.glsl", "code/frag1shader.glsl");
-		renderingProgram2 = Utils.createShaderProgram("code/vert2shader.glsl", "code/frag2shader.glsl");
+		renderingProgram2 = Utils.createShaderProgram("code/vert2shader.glsl","code/geoShader.glsl", "code/frag2shader.glsl");
+		
 
 		campfireModel  = new ImportedModel("Campfire.obj");
 		numCampfireVertices = campfireModel.getNumVertices();
@@ -1203,6 +1247,10 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 				break; 
 			case KeyEvent.VK_1:
 				lightEnabled = !lightEnabled;
+				break;
+			//turn on off Fog
+			case KeyEvent.VK_F:
+				fog = !fog; 
 				break;
 		}
 		// Limit pitch and cameraY to prevent flipping and going under floor

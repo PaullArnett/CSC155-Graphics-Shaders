@@ -5,6 +5,7 @@ in vec3 varyingLightDir;
 in vec3 varyingVertPos;
 in vec3 varyingHalfVector;
 in vec2 varyingTexCoord;
+in float fogDepth;
 
 uniform sampler2D texture_sampler;
 uniform bool u_skybox;
@@ -73,10 +74,20 @@ void main(void)
 		// Combine lighting contributions
 		vec3 lightColor = ambient + diffuse + specular;
 		
-		// Sample the campfire texture with the interpolated texture coordinates
+		// Sample the texture with the interpolated texture coordinates
 		vec4 texColor = texture(texture_sampler, varyingTexCoord);
 		
 		// Multiply the lighting with the texture for the final color
 		fragColor = vec4(lightColor, 1.0) * texColor;
 	}
+
+	//Fog
+	vec4 fogColor = vec4(0.7, 0.8, 0.9, 1.0);	// bluish gray
+	float fogStart = 0.2;
+	float fogEnd = 0.8;
+
+	float fogFactor = clamp(((fogEnd-fFogDepth)/(fogEnd-fogStart)), 0.0, 1.0);
+	fragColor = mix(fogColor,fragColor,fogFactor);
+
+
 }
