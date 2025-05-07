@@ -118,6 +118,12 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 
 	private int axisVAO;
     private int axisVBO;
+
+	//time stuff
+	private float amt = 0.0f;
+	private double prevTime;
+	private double elapsedTime;
+	private long lastTime = System.currentTimeMillis();
 	
 	public Code()
 	{	setTitle("Chapter8 - program 1");
@@ -233,6 +239,39 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glDepthFunc(GL_LEQUAL);
 	
 		gl.glDrawArrays(GL_TRIANGLES, 0, numCampfireVertices);
+
+		// draw the campfire
+		
+		mMat.identity();
+		mMat.translate(flyLoc.x(), flyLoc.y(), flyLoc.z());
+		mMat.scale(0.1f, 0.1f, 0.1f);
+		//mMat.rotateX((float)Math.toRadians(30.0f));
+		//mMat.rotateY((float)Math.toRadians(40.0f));
+
+		shadowMVP1.identity();
+		shadowMVP1.mul(lightPmat);
+		shadowMVP1.mul(lightVmat);
+		shadowMVP1.mul(mMat);
+
+		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP1.get(vals));
+		
+
+		gl.glBindVertexArray(flyVAO);
+		// positions → attrib 0
+		gl.glBindBuffer(GL_ARRAY_BUFFER, flyVBO[0]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		// normals → attrib 1
+		gl.glBindBuffer(GL_ARRAY_BUFFER, flyVBO[2]);
+		gl.glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glDepthFunc(GL_LEQUAL);
+	
+		gl.glDrawArrays(GL_TRIANGLES, 0, numFlyVertices);
 
 		// ------ draw the floor -------
 		
@@ -408,6 +447,77 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glBindVertexArray(0);
 		gl.glEnable(GL_CULL_FACE);
 
+		//----------Draw the Fly--------------
+
+		thisAmb = GmatAmb; 
+		thisDif = GmatDif;
+		thisSpe = GmatSpe;
+		thisShi = GmatShi;
+		
+		Matrix4f flyMat = mMat;  // copy parent's transformation
+
+		// Compute delta-time to update the orbit angle
+		long currentTime = System.currentTimeMillis();
+		float dt = (currentTime - lastTime) / 1000.0f;
+		float orbitSpeed = 270.0f; // degrees per second
+		amt += orbitSpeed * dt;
+		amt %= 360;
+		lastTime = currentTime;
+
+		// Create a rotation about the Y axis for orbiting and a translation to set the orbit distance
+		Matrix4f orbitRot = new Matrix4f().rotationY((float)Math.toRadians(amt));
+		Matrix4f orbitTrans = new Matrix4f().translate(4f, 3.5f, 0.0f);
+
+		flyMat.mul(orbitRot).mul(orbitTrans);
+		flyMat.scale(0.2f);
+		flyMat.rotateY(90f);
+		
+		currentLightPos.set(campfireLoc.x, campfireLoc.y + 3f,campfireLoc.z);
+		installLights(renderingProgram2);
+
+		shadowMVP2.identity();
+		shadowMVP2.mul(b);
+		shadowMVP2.mul(lightPmat);
+		shadowMVP2.mul(lightVmat);
+		shadowMVP2.mul(flyMat);
+
+		Matrix4f invTrFly = new Matrix4f();
+		flyMat.invert(invTrFly);
+		invTrFly.transpose(invTrFly);
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
+		
+		gl.glBindVertexArray(flyVAO);
+	    // positions
+	    gl.glBindBuffer(GL_ARRAY_BUFFER, flyVBO[0]);
+	    gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+	    gl.glEnableVertexAttribArray(0);
+
+	    // normals
+		gl.glBindBuffer(GL_ARRAY_BUFFER, flyVBO[2]);
+		gl.glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+
+		// text coords
+		gl.glBindBuffer(GL_ARRAY_BUFFER, flyVBO[1]);
+		gl.glVertexAttribPointer(2, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(2);
+
+		// bind the texture
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, flyTexture);
+		texLoc = gl.glGetUniformLocation(renderingProgram2, "textureMap");
+		gl.glUniform1i(texLoc, 0);
+		 
+		gl.glDisable(GL_CULL_FACE);
+		gl.glDrawArrays(GL_TRIANGLES, 0, numFlyVertices);
+		gl.glBindVertexArray(0);
+		gl.glEnable(GL_CULL_FACE);
+
 		// --------- draw the Floor ---------  
 		
 		thisAmb = GmatAmb; //  is gold
@@ -465,6 +575,60 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, 6);
 		gl.glBindVertexArray(0);
 
+		// --------- draw the Skybox ---------  
+		
+		thisAmb = GmatAmb; //  is gold
+		thisDif = GmatDif;
+		thisSpe = GmatSpe;
+		thisShi = GmatShi;
+		
+		mMat.identity();
+		mMat.translate(cameraX, cameraY, cameraZ);
+		mMat.scale(200f, 200f, 200f);
+
+		int uSkybox = gl.glGetUniformLocation(renderingProgram2, "u_skybox");
+		gl.glUniform1i(uSkybox, 1);
+		
+		currentLightPos.set(campfireLoc.x, campfireLoc.y + 3f,campfireLoc.z);
+		installLights(renderingProgram2);
+
+		shadowMVP2.identity();
+		shadowMVP2.mul(b);
+		shadowMVP2.mul(lightPmat);
+		shadowMVP2.mul(lightVmat);
+		shadowMVP2.mul(mMat);
+		
+		mMat.invert(invTrMat);
+		invTrMat.transpose(invTrMat);
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
+		
+		gl.glBindVertexArray(skyboxVAO);
+	    // positions
+	    gl.glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO[0]);
+	    gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+	    gl.glEnableVertexAttribArray(0);
+
+		// text coords
+		gl.glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO[1]);
+		gl.glVertexAttribPointer(2, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(2);
+
+		// bind the texture
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, skyboxTexture);
+		texLoc = gl.glGetUniformLocation(renderingProgram2, "textureMap");
+		gl.glUniform1i(texLoc, 0);
+		 
+
+		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
+		gl.glBindVertexArray(0);
+		gl.glUniform1i(uSkybox, 0);
+
 		// ----------Axis Lines--------------
 		if(showAxes) {
 			// 1. reset model matrix to identity so axes sit at world origin
@@ -517,17 +681,17 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		numFlyVertices = flyModel.getNumVertices();
 		flyTexture     = Utils.loadTexture("fly.jpg");
 
-		floorTexture   = Utils.loadTexture("ground.jpg");
-		skyboxTexture  = Utils.loadTexture("Night Sky.png");
+		floorTexture   = Utils.loadTexture("ground2.jpg");
+		skyboxTexture  = Utils.loadTexture("Night_Sky2.jpg");
 
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
 		pMat.identity().setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
 
 		setupVertices();
-		//setupSkyboxVertices();
+		setupSkyboxVertices();
 		setupCampfireVertices();       
 		setupPandaVertices();
-		//setupFlyVertices();
+		setupFlyVertices();
 		setupFloorVertices();
 		setupAxisLines();
 
