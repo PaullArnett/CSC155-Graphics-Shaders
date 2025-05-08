@@ -16,7 +16,7 @@ import java.awt.event.KeyEvent;
 
 public class Code extends JFrame implements GLEventListener, KeyListener
 {	private GLCanvas myCanvas;
-	private int renderingProgram1, renderingProgram2;
+	private int renderingProgram1, renderingProgram2, renderingProgram3;
 	private int vao[] = new int[1];
 	private int vbo[] = new int[5];
 
@@ -672,33 +672,42 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 
 		// ----------Axis Lines--------------
 		if(showAxes) {
-			// 1. reset model matrix to identity so axes sit at world origin
-			mMat.identity();
-			gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
-			gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
-			gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-			gl.glProgramUniform1f(renderingProgram2, alphaLoc, 1.0f);
-			gl.glProgramUniform1f(renderingProgram2, flipLoc, 1.0f);
+			gl.glUseProgram(renderingProgram3);
+			int mLoc3      = gl.glGetUniformLocation(renderingProgram3, "m_matrix");
+			int vLoc3      = gl.glGetUniformLocation(renderingProgram3, "v_matrix");
+			int pLoc3      = gl.glGetUniformLocation(renderingProgram3, "p_matrix");
+			int uTex3      = gl.glGetUniformLocation(renderingProgram3, "u_texture");
+			int uSky3      = gl.glGetUniformLocation(renderingProgram3, "u_skybox");
+			int uFog3      = gl.glGetUniformLocation(renderingProgram3, "u_fog");
+			int colorLoc3  = gl.glGetUniformLocation(renderingProgram3, "u_color");
+
+			gl.glUniform1i(uTex3, 0);     // go into the pure-color branch
+			gl.glUniform1i(uSky3, 0);     // no skybox
+			gl.glUniform1i(uFog3, 0);     // no fog
+
+			Matrix4f axisMat = new Matrix4f().identity();
+			gl.glUniformMatrix4fv(mLoc3, 1, false, axisMat.get(vals));
+			gl.glUniformMatrix4fv(vLoc3, 1, false, vMat.get(vals));
+			gl.glUniformMatrix4fv(pLoc3, 1, false, pMat.get(vals));
+			gl.glProgramUniform1f(renderingProgram3, alphaLoc, 1.0f);
+			gl.glProgramUniform1f(renderingProgram3, flipLoc, 1.0f);
 			
 			// 2. tell the shader dont sample textures, use u_color instead
-			uTexLoc = gl.glGetUniformLocation(renderingProgram2, "u_texture");
-			gl.glUniform1i(uTexLoc, 0);
-			int colorLoc = gl.glGetUniformLocation(renderingProgram2, "u_color");
 			
-			Matrix4f axisMat = new Matrix4f().identity();
-			axisMat.scale(5f);
+
+			axisMat.scale(10f);
 			gl.glUniformMatrix4fv(mLoc, 1, false, axisMat.get(vals));
 
 			// 4. bind your axis VAO and draw 3 lines (6 verts)
 			gl.glBindVertexArray(axisVAO);
 			// X-axis in Red
-			gl.glUniform4f(colorLoc, 1.0f, 0.0f, 0.0f, 1.0f);
+			gl.glUniform4f(colorLoc3, 1.0f, 0.0f, 0.0f, 1.0f);
 			gl.glDrawArrays(GL_LINES, 0, 2);
 			// Y-axis in Green
-			gl.glUniform4f(colorLoc, 0.0f, 1.0f, 0.0f, 1.0f);
+			gl.glUniform4f(colorLoc3, 0.0f, 1.0f, 0.0f, 1.0f);
 			gl.glDrawArrays(GL_LINES, 2, 2);
 			// Z-axis in Blue
-			gl.glUniform4f(colorLoc, 0.0f, 0.0f, 1.0f, 1.0f);
+			gl.glUniform4f(colorLoc3, 0.0f, 0.0f, 1.0f, 1.0f);
 			gl.glDrawArrays(GL_LINES, 4, 2);
 			gl.glBindVertexArray(0);
 			
@@ -711,6 +720,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	{	GL4 gl = (GL4) GLContext.getCurrentGL();
 		renderingProgram1 = Utils.createShaderProgram("code/vert1shader.glsl", "code/frag1shader.glsl");
 		renderingProgram2 = Utils.createShaderProgram("code/vert2shader.glsl","code/geoShader.glsl", "code/frag2shader.glsl");
+		renderingProgram3 = Utils.createShaderProgram("code/vert2shader.glsl","code/axisgeoshader.glsl", "code/frag2shader.glsl");
 		
 
 		campfireModel  = new ImportedModel("Campfire.obj");
