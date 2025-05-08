@@ -26,13 +26,15 @@ uniform mat4 p_matrix;
 
 void main() {
     // compute a single averaged normal in worldspace
-    vec3 avgN = normalize(
-        (varyingNormal[0] + varyingNormal[1] + varyingNormal[2]) / 3.0
-    );
+   // vec3 avgN = normalize(
+    //    (varyingNormal[0] + varyingNormal[1] + varyingNormal[2]) / 3.0
+   // );
 
     for(int i = 0; i < 3; ++i) {
-        vec4 worldPosOffset = vec4(varyingVertPos[i] + avgN * 0.4, 1.0);
-        vec4 viewPos = v_matrix * worldPosOffset;
+        //vec4 worldPosOffset = vec4(varyingVertPos[i] + avgN * 0.4, 1.0);
+        //vec4 viewPos = v_matrix * worldPosOffset;
+
+        vec4 viewPos = v_matrix * vec4(varyingVertPos[i], 1.0);
         gl_Position = p_matrix * viewPos;
 
         varyingNormalG   = varyingNormal[i];

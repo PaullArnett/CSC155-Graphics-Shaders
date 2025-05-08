@@ -116,7 +116,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	private int skyboxVAO;
 	private int[] skyboxVBO;
 	private int skyboxTexture;
-
+	
 	private int axisVAO;
     private int axisVBO;
 
@@ -459,7 +459,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glBindTexture(GL_TEXTURE_2D, campfireTexture);
 		texLoc = gl.glGetUniformLocation(renderingProgram2, "textureMap");
 		gl.glUniform1i(texLoc, 0);
-
+		 
 		 //transparncy section
 		gl.glEnable(GL_BLEND);
 		gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
